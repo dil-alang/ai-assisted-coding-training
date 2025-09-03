@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   ListItem,
   ListItemText,
@@ -18,28 +18,32 @@ interface TodoItemProps {
   onEditClick: (todo: Todo) => void;
 }
 
-// Helper function to check if overdue
-const isOverdue = (dueDate: string): boolean => {
+// Helper function to parse date and return info object
+const parseDueDate = (dueDate: string, currentDate: Date) => {
   try {
     const date = parseISO(dueDate);
-    return isValid(date) && isBefore(date, new Date());
+    if (!isValid(date)) {
+      return { isValid: false, formatted: 'Invalid date', isOverdue: false };
+    }
+    return {
+      isValid: true,
+      formatted: format(date, 'PP'), // e.g., "Sep 3, 2025"
+      isOverdue: isBefore(date, currentDate),
+    };
   } catch {
-    return false;
-  }
-};
-
-// Helper function to format due date
-const formatDueDate = (dueDate: string): string => {
-  try {
-    const date = parseISO(dueDate);
-    return isValid(date) ? format(date, 'PP') : 'Invalid date'; // e.g., "Sep 3, 2025"
-  } catch {
-    return 'Invalid date';
+    return { isValid: false, formatted: 'Invalid date', isOverdue: false };
   }
 };
 
 export const TodoItem: React.FC<TodoItemProps> = ({ todo, onEditClick }) => {
   const { toggleTodoCompletion, deleteTodo } = useTodo();
+
+  // Memoize current date and date parsing to avoid re-computation on every render
+  const dueDateInfo = useMemo(() => {
+    if (!todo.dueDate) return null;
+    const currentDate = new Date();
+    return parseDueDate(todo.dueDate, currentDate);
+  }, [todo.dueDate]);
 
   return (
     <>
@@ -91,11 +95,11 @@ export const TodoItem: React.FC<TodoItemProps> = ({ todo, onEditClick }) => {
               >
                 {todo.title}
               </Typography>
-              {todo.dueDate && (
+              {dueDateInfo && (
                 <Chip
-                  label={formatDueDate(todo.dueDate)}
+                  label={dueDateInfo.formatted}
                   size="small"
-                  color={isOverdue(todo.dueDate) ? 'error' : 'default'}
+                  color={dueDateInfo.isOverdue ? 'error' : 'default'}
                   variant="outlined"
                   sx={{ fontSize: '0.75rem' }}
                 />
