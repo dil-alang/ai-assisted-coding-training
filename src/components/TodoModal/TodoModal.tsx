@@ -10,6 +10,8 @@ import {
   FormControlLabel,
   Checkbox,
 } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { isValid, parseISO } from 'date-fns';
 import { useTodo } from '../../hooks/useTodo';
 // Todo type is used in the context, no need to import it directly here
 
@@ -22,6 +24,7 @@ interface TodoModalProps {
     title: string;
     description: string;
     completed: boolean;
+    dueDate?: string;
   };
 }
 
@@ -35,6 +38,7 @@ export const TodoModal: React.FC<TodoModalProps> = ({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [completed, setCompleted] = useState(false);
+  const [dueDate, setDueDate] = useState<Date | null>(null);
   const [titleError, setTitleError] = useState('');
 
   // Reset form or load values when modal opens
@@ -44,10 +48,18 @@ export const TodoModal: React.FC<TodoModalProps> = ({
         setTitle(initialValues.title);
         setDescription(initialValues.description);
         setCompleted(initialValues.completed);
+        // Parse due date if it exists
+        if (initialValues.dueDate) {
+          const parsedDate = parseISO(initialValues.dueDate);
+          setDueDate(isValid(parsedDate) ? parsedDate : null);
+        } else {
+          setDueDate(null);
+        }
       } else {
         setTitle('');
         setDescription('');
         setCompleted(false);
+        setDueDate(null);
       }
       setTitleError('');
     }
@@ -66,13 +78,16 @@ export const TodoModal: React.FC<TodoModalProps> = ({
 
     if (!validateForm()) return;
 
+    const dueDateString = dueDate ? dueDate.toISOString() : undefined;
+
     if (mode === 'create') {
-      addTodo(title.trim(), description.trim());
+      addTodo(title.trim(), description.trim(), dueDateString);
     } else if (mode === 'edit' && initialValues) {
       editTodo(initialValues.id, {
         title: title.trim(),
         description: description.trim(),
         completed,
+        dueDate: dueDateString,
       });
     }
     onClose();
@@ -120,6 +135,17 @@ export const TodoModal: React.FC<TodoModalProps> = ({
                   'data-testid': 'description-input',
                 } as React.InputHTMLAttributes<HTMLInputElement>
               }
+            />
+            <DatePicker
+              label="Due Date (optional)"
+              value={dueDate}
+              onChange={newValue => setDueDate(newValue)}
+              slotProps={{
+                textField: {
+                  fullWidth: true,
+                  inputProps: { 'data-testid': 'due-date-picker' },
+                },
+              }}
             />
             {mode === 'edit' && (
               <FormControlLabel

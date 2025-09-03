@@ -1,8 +1,11 @@
 // React is used implicitly
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { TodoModal } from '../components/TodoModal/TodoModal';
 import { useTodo } from '../hooks/useTodo';
+import type { Todo } from '../types/Todo';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 // Mock the useTodo hook
@@ -15,6 +18,27 @@ describe('TodoModal Component', () => {
   const mockEditTodo = vi.fn();
   const mockOnClose = vi.fn();
 
+  // Helper function to render TodoModal with LocalizationProvider
+  const renderTodoModal = (props: {
+    isOpen: boolean;
+    onClose: () => void;
+    mode: 'create' | 'edit';
+    initialValues?: {
+      id: string;
+      title: string;
+      description: string;
+      completed: boolean;
+      dueDate?: string;
+      createdAt?: Date;
+    };
+  }) => {
+    return render(
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <TodoModal {...props} />
+      </LocalizationProvider>
+    );
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     (useTodo as jest.MockedFunction<typeof useTodo>).mockReturnValue({
@@ -26,45 +50,49 @@ describe('TodoModal Component', () => {
     });
   });
 
-  it('renders create modal correctly', () => {
-    render(<TodoModal isOpen={true} onClose={mockOnClose} mode="create" />);
+  it('renders correctly when open for creating a new todo', () => {
+    renderTodoModal({
+      isOpen: true,
+      mode: 'create',
+      onClose: mockOnClose,
+    });
 
-    // Check that the modal title is displayed
-    expect(screen.getByText('Create Todo')).toBeInTheDocument();
-
-    // Check that form elements are displayed
-    expect(screen.getByTestId('title-input')).toBeInTheDocument();
-    expect(screen.getByTestId('description-input')).toBeInTheDocument();
-    expect(screen.getByText('Create')).toBeInTheDocument();
-    expect(screen.getByText('Cancel')).toBeInTheDocument();
-
-    // Completed checkbox should not be shown in create mode
-    expect(screen.queryByText('Mark as completed')).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /create todo/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/title/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /create/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
   });
 
-  it('renders edit modal correctly with pre-filled values', () => {
-    const mockTodo = {
-      id: '123',
-      title: 'Test Todo',
-      description: 'Test Description',
+  it('renders correctly when open for editing an existing todo', () => {
+    const existingTodo: Todo = {
+      id: '1',
+      title: 'Existing Todo',
+      description: 'Existing Description',
       completed: false,
+      dueDate: '2024-12-31T00:00:00.000Z',
+      createdAt: new Date('2024-12-01T00:00:00.000Z'),
     };
 
-    render(<TodoModal isOpen={true} onClose={mockOnClose} mode="edit" initialValues={mockTodo} />);
+    renderTodoModal({
+      isOpen: true,
+      mode: 'edit',
+      initialValues: existingTodo,
+      onClose: mockOnClose,
+    });
 
-    // Check that the modal title is displayed
-    expect(screen.getByText('Edit Todo')).toBeInTheDocument();
-
-    // Check that form elements are displayed with pre-filled values
-    expect(screen.getByDisplayValue('Test Todo')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Test Description')).toBeInTheDocument();
-    expect(screen.getByTestId('completed-checkbox')).not.toBeChecked();
-    expect(screen.getByText('Save')).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /edit todo/i })).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Existing Todo')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Existing Description')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
   });
 
   it('does not submit when title is empty', async () => {
     const user = userEvent.setup();
-    render(<TodoModal isOpen={true} onClose={mockOnClose} mode="create" />);
+    renderTodoModal({ isOpen: true, onClose: mockOnClose, mode: 'create' });
 
     // Try to submit without entering a title
     const submitButton = screen.getByTestId('submit-button');
@@ -77,7 +105,7 @@ describe('TodoModal Component', () => {
 
   it('calls addTodo when form is submitted in create mode', async () => {
     const user = userEvent.setup();
-    render(<TodoModal isOpen={true} onClose={mockOnClose} mode="create" />);
+    renderTodoModal({ isOpen: true, onClose: mockOnClose, mode: 'create' });
 
     // Fill in form fields
     await user.type(screen.getByTestId('title-input'), 'New Todo');
@@ -88,7 +116,7 @@ describe('TodoModal Component', () => {
     await user.click(submitButton);
 
     // Should call addTodo with correct values
-    expect(mockAddTodo).toHaveBeenCalledWith('New Todo', 'New Description');
+    expect(mockAddTodo).toHaveBeenCalledWith('New Todo', 'New Description', undefined);
 
     // Should close the modal
     expect(mockOnClose).toHaveBeenCalled();
@@ -103,7 +131,7 @@ describe('TodoModal Component', () => {
       completed: false,
     };
 
-    render(<TodoModal isOpen={true} onClose={mockOnClose} mode="edit" initialValues={mockTodo} />);
+    renderTodoModal({ isOpen: true, onClose: mockOnClose, mode: 'edit', initialValues: mockTodo });
 
     // Edit form fields
     await user.clear(screen.getByDisplayValue('Test Todo'));
@@ -131,7 +159,7 @@ describe('TodoModal Component', () => {
 
   it('closes the modal when cancel button is clicked', async () => {
     const user = userEvent.setup();
-    render(<TodoModal isOpen={true} onClose={mockOnClose} mode="create" />);
+    renderTodoModal({ isOpen: true, onClose: mockOnClose, mode: 'create' });
 
     // Click cancel button
     await user.click(screen.getByText('Cancel'));

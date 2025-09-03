@@ -1,5 +1,15 @@
 import React from 'react';
-import { ListItem, ListItemText, IconButton, Checkbox, Divider, Typography } from '@mui/material';
+import {
+  ListItem,
+  ListItemText,
+  IconButton,
+  Checkbox,
+  Divider,
+  Typography,
+  Chip,
+  Box,
+} from '@mui/material';
+import { format, parseISO, isBefore } from 'date-fns';
 import type { Todo } from '../../types/Todo';
 import { useTodo } from '../../hooks/useTodo';
 
@@ -7,6 +17,26 @@ interface TodoItemProps {
   todo: Todo;
   onEditClick: (todo: Todo) => void;
 }
+
+// Helper function to check if overdue
+const isOverdue = (dueDate: string): boolean => {
+  try {
+    const date = parseISO(dueDate);
+    return isBefore(date, new Date());
+  } catch {
+    return false;
+  }
+};
+
+// Helper function to format due date
+const formatDueDate = (dueDate: string): string => {
+  try {
+    const date = parseISO(dueDate);
+    return format(date, 'PP'); // e.g., "Sep 3, 2025"
+  } catch {
+    return 'Invalid date';
+  }
+};
 
 export const TodoItem: React.FC<TodoItemProps> = ({ todo, onEditClick }) => {
   const { toggleTodoCompletion, deleteTodo } = useTodo();
@@ -50,16 +80,27 @@ export const TodoItem: React.FC<TodoItemProps> = ({ todo, onEditClick }) => {
         <ListItemText
           disableTypography
           primary={
-            <Typography
-              variant="body1"
-              sx={{
-                textDecoration: todo.completed ? 'line-through' : 'none',
-                color: todo.completed ? 'text.secondary' : 'text.primary',
-                fontWeight: 500,
-              }}
-            >
-              {todo.title}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography
+                variant="body1"
+                sx={{
+                  textDecoration: todo.completed ? 'line-through' : 'none',
+                  color: todo.completed ? 'text.secondary' : 'text.primary',
+                  fontWeight: 500,
+                }}
+              >
+                {todo.title}
+              </Typography>
+              {todo.dueDate && (
+                <Chip
+                  label={formatDueDate(todo.dueDate)}
+                  size="small"
+                  color={isOverdue(todo.dueDate) ? 'error' : 'default'}
+                  variant="outlined"
+                  sx={{ fontSize: '0.75rem' }}
+                />
+              )}
+            </Box>
           }
           secondary={
             <Typography
