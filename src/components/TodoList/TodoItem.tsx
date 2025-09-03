@@ -9,7 +9,7 @@ import {
   Chip,
   Box,
 } from '@mui/material';
-import { format, parseISO, isBefore } from 'date-fns';
+import { format, parseISO, isBefore, isValid } from 'date-fns';
 import type { Todo } from '../../types/Todo';
 import { useTodo } from '../../hooks/useTodo';
 
@@ -22,7 +22,7 @@ interface TodoItemProps {
 const isOverdue = (dueDate: string): boolean => {
   try {
     const date = parseISO(dueDate);
-    return isBefore(date, new Date());
+    return isValid(date) && isBefore(date, new Date());
   } catch {
     return false;
   }
@@ -32,7 +32,7 @@ const isOverdue = (dueDate: string): boolean => {
 const formatDueDate = (dueDate: string): string => {
   try {
     const date = parseISO(dueDate);
-    return format(date, 'PP'); // e.g., "Sep 3, 2025"
+    return isValid(date) ? format(date, 'PP') : 'Invalid date'; // e.g., "Sep 3, 2025"
   } catch {
     return 'Invalid date';
   }
